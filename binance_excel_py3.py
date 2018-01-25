@@ -2,10 +2,35 @@ import xlwings
 import xlwings as xw
 import numpy as np
 import asyncio
-from ExcelPathVar import EXCEL_PATH
+from FPaths import EXCEL_PATH, BINANCELOG
 import time
 import ccxt.async as ccxt
 from time import gmtime, strftime
+import logging, sys
+
+
+class StreamToLogger(object):
+    """
+    Fake file-like stream object that redirects writes to a logger instance.
+    """
+
+    def __init__(self, logger, log_level=logging.INFO):
+        self.logger = logger
+        self.log_level = log_level
+        self.linebuf = ''
+
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.log_level, line.rstrip())
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
+    filename=BINANCELOG,
+    filemode='a'
+)
+
 
 async def getexchanges():
     ex = ccxt.binance()
@@ -62,7 +87,6 @@ def fillvals(ob0, ob1, ob2, ob3, ob4, ob5, ob6, ob7, ob8, ob9, ob10):
         sht['ah6'].value = b8
         sht.range('aj6').value = np.array(ob8['asks'])
 
-
         b9 = np.array(ob9['bids'])
         sht['al6'].value = b9
         sht.range('an6').value = np.array(ob9['asks'])
@@ -73,7 +97,7 @@ def fillvals(ob0, ob1, ob2, ob3, ob4, ob5, ob6, ob7, ob8, ob9, ob10):
 
         return True
     except BaseException as e:
-        print ("Error in filling excel value for binance:%s"%e)
+        print ("Error in filling excel value for binance:%s" % e)
         return False
 
 
@@ -96,11 +120,20 @@ def fillexcel():
 
 
 if __name__ == "__main__":
+    stdout_logger = logging.getLogger('STDOUT')
+    sl = StreamToLogger(stdout_logger, logging.INFO)
+    sys.stdout = sl
 
+    stderr_logger = logging.getLogger('STDERR')
+    sl = StreamToLogger(stderr_logger, logging.ERROR)
+    sys.stderr = sl
     wb = xw.Book(EXCEL_PATH)
     sht = wb.sheets['Binance - Orderbook']
     while True:
-        print("Binance Orderbook processing at %s" %
-              strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-        fillexcel()
-        time.sleep(2)
+        try:
+            print("Binance Orderbook processing at %s" %
+                  strftime("%Y-%m-%d %H:%M:%S", gmtime()))
+            fillexcel()
+            time.sleep(2)
+        except BaseException as e:
+            print(e)

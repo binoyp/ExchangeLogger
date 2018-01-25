@@ -5,7 +5,20 @@ import time
 from time import gmtime, strftime
 
 from FPaths import EXCEL_PATH
+import sys, logging
 
+class StreamToLogger(object):
+   """
+   Fake file-like stream object that redirects writes to a logger instance.
+   """
+   def __init__(self, logger, log_level=logging.INFO):
+      self.logger = logger
+      self.log_level = log_level
+      self.linebuf = ''
+
+   def write(self, buf):
+      for line in buf.rstrip().splitlines():
+         self.logger.log(self.log_level, line.rstrip())
 
 def fillcoindelta_inrvals(ob, cur):
     wb = xw.Book(EXCEL_PATH)
