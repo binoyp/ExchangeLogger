@@ -6,7 +6,8 @@ from FPaths import EXCEL_PATH, BINANCELOG
 import time
 import ccxt.async as ccxt
 from time import gmtime, strftime
-import logging, sys
+import logging
+import sys
 
 
 class StreamToLogger(object):
@@ -32,68 +33,104 @@ logging.basicConfig(
 )
 
 
-async def getexchanges():
-    ex = ccxt.binance()
-    ob0 = await ex.fetch_order_book('LTC/ETH')
-    ob1 = await ex.fetch_order_book('OMG/ETH')
-    ob2 = await ex.fetch_order_book('QTUM/ETH')
-    ob3 = await ex.fetch_order_book('XRP/ETH')
-    ob4 = await ex.fetch_order_book('BCH/ETH')
-    ob5 = await ex.fetch_order_book('ETH/BTC')
-    ob6 = await ex.fetch_order_book('LTC/BTC')
-    ob7 = await ex.fetch_order_book('OMG/BTC')
-    ob8 = await ex.fetch_order_book('QTUM/BTC')
-    ob9 = await ex.fetch_order_book('XRP/BTC')
-    ob10 = await ex.fetch_order_book('BCH/BTC')
+async def getbinanceob():
+    binex = ccxt.binance()
+    outdic = dict()
+    exlist = ['LTC/ETH', 'OMG/ETH', 'QTUM/ETH', 'XRP/ETH', 'BCH/ETH', 'NEO/ETH', 'ETH/BTC', 'LTC/BTC',
+              'OMG/BTC', 'QTUM/BTC', 'XRP/BTC', 'BCH/BTC', 'NEO/BTC', 'GAS/BTC', 'LTC/BNB', 'NEO/BNB']
+    for ex in exlist:
+        try:
+            outdic[ex] = await binex.fetch_order_book(ex)
+        except BaseException as e:
+            print("Error in fetching binance order book %s: %s" % (ex, e))
 
-    return (ob0, ob1, ob2, ob3, ob4, ob5, ob6, ob7, ob8, ob9, ob10)
+    return outdic
 
 
-def fillvals(ob0, ob1, ob2, ob3, ob4, ob5, ob6, ob7, ob8, ob9, ob10):
+async def getkukoin():
+    kuex = ccxt.kucoin()
+    outdic = dict()
+    exlist = ['GAS/NEO', "GAS/BTC", 'NEO/BTC', 'NEO/USDT', 'NEO/ETH',
+              'QTUM/NEO',	'QTUM/BTC', 'LTC/NEO', 'LTC/BTC', 'LTC/ETH']  # , 'GAS/USD'
 
+    for ex in exlist:
+        try:
+            outdic[ex] = await kuex.fetch_order_book(ex)
+        except BaseException as e:
+            print("Error in fetching kukoin order book %s: %s" % (ex, e))
+
+    return outdic
+
+
+def fillkuvals(obdict, wb):
+    shtkukoin = wb.sheets['Kucoin - Orderbook ']
+    _kukoin_sheet = {
+        'GAS/NEO': {'bids': shtkukoin.range('b6'), 'asks': shtkukoin.range('d6')},
+        'GAS/BTC': {'bids': shtkukoin.range('f6'), 'asks': shtkukoin.range('h6')},
+        # 'GAS/USD': {'bids': shtkukoin.range('j6'), 'asks': shtkukoin.range('l6')},
+        'NEO/BTC': {'bids': shtkukoin.range('n6'), 'asks': shtkukoin.range('p6')},
+        'NEO/USDT': {'bids': shtkukoin.range('r6'), 'asks': shtkukoin.range('t6')},
+        'NEO/ETH': {'bids': shtkukoin.range('v6'), 'asks': shtkukoin.range('x6')},
+        'QTUM/NEO': {'bids': shtkukoin.range('z6'), 'asks': shtkukoin.range('ab6')},
+        'QTUM/BTC': {'bids': shtkukoin.range('ad6'), 'asks': shtkukoin.range('af6')},
+        'QTUM/ETH': {'bids': shtkukoin.range('ah6'), 'asks': shtkukoin.range('aj6')},
+        'LTC/NEO': {'bids': shtkukoin.range('al6'), 'asks': shtkukoin.range('an6')},
+        'LTC/BTC': {'bids': shtkukoin.range('ap6'), 'asks': shtkukoin.range('ar6')},
+        'LTC/ETH': {'bids': shtkukoin.range('at6'), 'asks': shtkukoin.range('av6')}
+    }
     try:
-        b0 = np.array(ob0['bids'])
-        sht['b6'].value = b0
-        sht.range('d6').value = np.array(ob0['asks'])
+        for k in _kukoin_sheet:
+            if k in obdict:
+                _kukoin_sheet[k]['bids'].value = obdict[k]['bids']
+                _kukoin_sheet[k]['asks'].value = obdict[k]['asks']
 
-        sht['f6'].value = np.array(ob1['bids'])
-        sht.range('h6').value = np.array(ob1['asks'])
+        return True
+    except BaseException as e:
+        print ("Error in filling excel value for kukoin:%s" % e)
+        return False
 
-        b2 = np.array(ob2['bids'])
-        sht['j6'].value = b2
-        sht.range('l6').value = np.array(ob2['asks'])
 
-        b3 = np.array(ob3['bids'])
-        sht['n6'].value = b3
-        sht.range('p6').value = np.array(ob3['asks'])
+def fillbinancevals(obdict, wb):
+    shtbinance = wb.sheets['Binance - Orderbook']
 
-        b4 = np.array(ob4['bids'])
-        sht['r6'].value = b4
-        sht.range('t6').value = np.array(ob4['asks'])
-
-        b5 = np.array(ob5['bids'])
-        sht['v6'].value = b5
-        sht.range('x6').value = np.array(ob5['asks'])
-
-        b6 = np.array(ob6['bids'])
-        sht['z6'].value = b6
-        sht.range('ab6').value = np.array(ob6['asks'])
-
-        b7 = np.array(ob7['bids'])
-        sht['ad6'].value = b7
-        sht.range('af6').value = np.array(ob7['asks'])
-
-        b8 = np.array(ob8['bids'])
-        sht['ah6'].value = b8
-        sht.range('aj6').value = np.array(ob8['asks'])
-
-        b9 = np.array(ob9['bids'])
-        sht['al6'].value = b9
-        sht.range('an6').value = np.array(ob9['asks'])
-
-        b10 = np.array(ob10['bids'])
-        sht['ap6'].value = b10
-        sht.range('ar6').value = np.array(ob10['asks'])
+    _binance_sheet = {
+        'LTC/ETH': {'bids': shtbinance.range('b6'),
+                    'asks': shtbinance.range('d6')},
+        'OMG/ETH':  {'bids': shtbinance.range('f6'),
+                     'asks': shtbinance.range('h6')},
+        'QTUM/ETH':  {'bids': shtbinance.range('j6'),
+                      'asks': shtbinance.range('l6')},
+        'XRP/ETH':  {'bids': shtbinance.range('n6'),
+                     'asks': shtbinance.range('p6')},
+        'BCH/ETH':  {'bids': shtbinance.range('r6'),
+                     'asks': shtbinance.range('t6')},
+        'NEO/ETH':  {'bids': shtbinance.range('v6'),
+                     'asks': shtbinance.range('x6')},
+        'ETH/BTC':  {'bids': shtbinance.range('z6'),
+                     'asks': shtbinance.range('ab6')},
+        'LTC/BTC':  {'bids': shtbinance.range('ad6'),
+                     'asks': shtbinance.range('af6')},
+        'OMG/BTC':  {'bids': shtbinance.range('ah6'),
+                     'asks': shtbinance.range('aj6')},
+        'QTUM/BTC':  {'bids': shtbinance.range('al6'),
+                      'asks': shtbinance.range('an6')},
+        'XRP/BTC': {'bids': shtbinance.range('ap6'),
+                    'asks': shtbinance.range('ar6')},
+        'BCH/BTC': {'bids': shtbinance.range('at6'),
+                    'asks': shtbinance.range('av6')},
+        'NEO/BTC': {'bids': shtbinance.range('ax6'),
+                    'asks': shtbinance.range('az6')},
+        'GAS/BTC': {'bids': shtbinance.range('bb6'),
+                    'asks': shtbinance.range('bd6')},
+        'LTC/BNB': {'bids': shtbinance.range('bf6'),
+                    'asks': shtbinance.range('bh6')},
+        'NEO/BNB': {'bids': shtbinance.range('bj6'),
+                    'asks': shtbinance.range('bl6')}
+    }
+    try:
+        for k in _binance_sheet:
+            _binance_sheet[k]['bids'].value = obdict[k]['bids']
+            _binance_sheet[k]['asks'].value = obdict[k]['asks']
 
         return True
     except BaseException as e:
@@ -101,15 +138,19 @@ def fillvals(ob0, ob1, ob2, ob3, ob4, ob5, ob6, ob7, ob8, ob9, ob10):
         return False
 
 
-def fillexcel():
+def fillexcel(wb):
+    """FIll excel sheel with exchange order book
 
-    (ob0, ob1, ob2, ob3, ob4, ob5, ob6, ob7, ob8, ob9,
-     ob10) = asyncio.get_event_loop().run_until_complete(getexchanges())
+    Arguments:
+        wb {workbook} -- xlwings workbook object
+    """
+
+    obdict = asyncio.get_event_loop().run_until_complete(getbinanceob())
 
     tries = 0
     while tries < 5:
 
-        flg = fillvals(ob0, ob1, ob2, ob3, ob4, ob5, ob6, ob7, ob8, ob9, ob10)
+        flg = fillbinancevals(obdict, wb)
         if flg:
             break
         else:
@@ -117,23 +158,35 @@ def fillexcel():
             tries += 1
         if tries == 5:
             print(" Failed to update excel for binance after 5 tries")
+    kobdict = asyncio.get_event_loop().run_until_complete(getkukoin())
+    tries = 0
+    while tries < 5:
+
+        flg = fillkuvals(kobdict, wb)
+        if flg:
+            break
+        else:
+            time.sleep(3)
+            tries += 1
+        if tries == 5:
+            print(" Failed to update excel for kukoin after 5 tries")
 
 
 if __name__ == "__main__":
     stdout_logger = logging.getLogger('STDOUT')
     sl = StreamToLogger(stdout_logger, logging.INFO)
-    sys.stdout = sl
+    #sys.stdout = sl
 
     stderr_logger = logging.getLogger('STDERR')
     sl = StreamToLogger(stderr_logger, logging.ERROR)
-    sys.stderr = sl
+    #sys.stderr = sl
     wb = xw.Book(EXCEL_PATH)
-    sht = wb.sheets['Binance - Orderbook']
+
     while True:
         try:
             print("Binance Orderbook processing at %s" %
                   strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-            fillexcel()
+            fillexcel(wb)
             time.sleep(2)
         except BaseException as e:
             print(e)
