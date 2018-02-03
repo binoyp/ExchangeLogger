@@ -8,6 +8,9 @@ import ccxt.async as ccxt
 from time import gmtime, strftime
 import logging
 import sys
+from kucoin.client import Client
+Key = "5a75408d32329258021f65e8"
+Secret = "4048bef8-4663-4431-b0c3-4a70c779bfa6"
 
 
 class StreamToLogger(object):
@@ -47,27 +50,35 @@ async def getbinanceob():
     return outdic
 
 
-async def getkukoin():
-    kuex = ccxt.kucoin()
-    outdic = dict()
+async def getorder(client, sym, lim=20):
+    bids = client.get_buy_orders(sym, limit=lim)
+    bidarr = np.array(bids)
+    asks = client.get_sell_orders(sym, limit=lim)
+    askarr = np.array(asks)
+    return {'bids': bidarr[:, [0, 2]], 'asks': askarr[:, [0, 2]]}
+
+
+async def getkuorderbooks():
     exlist = ['GAS/NEO', "GAS/BTC", 'NEO/BTC', 'NEO/USDT', 'NEO/ETH',
-              'QTUM/NEO',	'QTUM/BTC', 'LTC/NEO', 'LTC/BTC', 'LTC/ETH']  # , 'GAS/USD'
-
+              'QTUM/NEO',	'QTUM/BTC', 'LTC/NEO', 'LTC/BTC', 'LTC/ETH']
+    client = Client(Key, Secret, language='en_US')
+    obs = {}
     for ex in exlist:
+        sym = ex.replace("/", "-")
         try:
-            outdic[ex] = await kuex.fetch_order_book(ex)
+            obs[ex] = await getorder(client, sym)
         except BaseException as e:
-            print("Error in fetching kukoin order book %s: %s" % (ex, e))
-
-    return outdic
+            print("Error in getting %s:%s" % (ex, e))
+    return obs
 
 
 def fillkuvals(obdict, wb):
+
     shtkukoin = wb.sheets['Kucoin - Orderbook ']
     _kukoin_sheet = {
         'GAS/NEO': {'bids': shtkukoin.range('b6'), 'asks': shtkukoin.range('d6')},
         'GAS/BTC': {'bids': shtkukoin.range('f6'), 'asks': shtkukoin.range('h6')},
-        # 'GAS/USD': {'bids': shtkukoin.range('j6'), 'asks': shtkukoin.range('l6')},
+        'GAS/USD': {'bids': shtkukoin.range('j6'), 'asks': shtkukoin.range('l6')},
         'NEO/BTC': {'bids': shtkukoin.range('n6'), 'asks': shtkukoin.range('p6')},
         'NEO/USDT': {'bids': shtkukoin.range('r6'), 'asks': shtkukoin.range('t6')},
         'NEO/ETH': {'bids': shtkukoin.range('v6'), 'asks': shtkukoin.range('x6')},
@@ -86,7 +97,7 @@ def fillkuvals(obdict, wb):
 
         return True
     except BaseException as e:
-        print ("Error in filling excel value for kukoin:%s" % e)
+        print("Error in filling excel value for kukoin:%s" % e)
         return False
 
 
@@ -134,7 +145,7 @@ def fillbinancevals(obdict, wb):
 
         return True
     except BaseException as e:
-        print ("Error in filling excel value for binance:%s" % e)
+        print("Error in filling excel value for binance:%s" % e)
         return False
 
 
@@ -158,7 +169,7 @@ def fillexcel(wb):
             tries += 1
         if tries == 5:
             print(" Failed to update excel for binance after 5 tries")
-    kobdict = asyncio.get_event_loop().run_until_complete(getkukoin())
+    kobdict = asyncio.get_event_loop().run_until_complete(getkuorderbooks())
     tries = 0
     while tries < 5:
 
